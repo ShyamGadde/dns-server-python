@@ -20,26 +20,46 @@ class DNSHeader:
     arcount: int
 
 
-def pack_dns_message(message: DNSHeader) -> bytes:
+@dataclass
+class DNSQuestion:
+    qname: str
+    qtype: int
+    qclass: int
+
+
+def pack_dns_header(header: DNSHeader) -> bytes:
     flags = (
-        (message.qr << 15)
-        | (message.opcode << 11)
-        | (message.aa << 10)
-        | (message.tc << 9)
-        | (message.rd << 8)
-        | (message.ra << 7)
-        | (message.z << 4)
-        | message.rcode
+        (header.qr << 15)
+        | (header.opcode << 11)
+        | (header.aa << 10)
+        | (header.tc << 9)
+        | (header.rd << 8)
+        | (header.ra << 7)
+        | (header.z << 4)
+        | header.rcode
     )
     return struct.pack(
         ">HHHHHH",
-        message.id,
+        header.id,
         flags,
-        message.qdcount,
-        message.ancount,
-        message.nscount,
-        message.arcount,
+        header.qdcount,
+        header.ancount,
+        header.nscount,
+        header.arcount,
     )
+
+
+def pack_dns_question(question: DNSQuestion) -> bytes:
+    # Encode qname
+    parts = question.qname.split(".")
+    qname = b"".join(len(p).to_bytes(1, "big") + p.encode("ascii") for p in parts)
+    qname += b"\x00"  # append null byte at the end
+
+    # Encode qtype and qclass as 2-byte integers (big endian)
+    qtype = question.qtype.to_bytes(2, byteorder="big")
+    qclass = question.qclass.to_bytes(2, byteorder="big")
+
+    return qname + qtype + qclass
 
 
 def main():
@@ -51,9 +71,11 @@ def main():
             buf, source = udp_socket.recvfrom(512)
 
             response = b""
-            header = DNSHeader(1234, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-            response += pack_dns_message(header)
 
+            header = DNSHeader(1234, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0)
+            question = DNSQuestion("codecrafter.io", 1, 1)
+
+            response += pack_dns_header(header) + pack_dns_question(question)
             udp_socket.sendto(response, source)
         except Exception as e:
             print(f"Error receiving data: {e}")
