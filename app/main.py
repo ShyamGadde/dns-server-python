@@ -85,7 +85,7 @@ def main():
 
             response = b""
 
-            header_packed = DNSHeader(1234, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1).pack()
+            header_packed = DNSHeader(1234, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0).pack()
             question_packed = DNSQuestion("codecrafters.io", 1, 1).pack()
             answer_packed = DNSAnswer("codecrafters.io", 1, 1, 60, 4, "8.8.8.8").pack()
 
