@@ -67,7 +67,7 @@ class DNSAnswer:
         parts = self.name.split(".")
         name = b"".join(len(p).to_bytes(1, "big") + p.encode("ascii") for p in parts)
         name += b"\x00"
-        rdata = struct.pack("!BBBB", *self.rdata.split("."))
+        rdata = struct.pack("!BBBB", *[int(part) for part in self.rdata.split(".")])
         return (
             name
             + struct.pack("!HHIH", self.type, self.class_, self.ttl, self.rdlength)
