@@ -73,7 +73,7 @@ def main():
             response = b""
 
             header = DNSHeader(1234, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0)
-            question = DNSQuestion("codecrafter.io", 1, 1)
+            question = DNSQuestion("codecrafters.io", 1, 1)
 
             response += pack_dns_header(header) + pack_dns_question(question)
             udp_socket.sendto(response, source)
