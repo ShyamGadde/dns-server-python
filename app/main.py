@@ -19,47 +19,60 @@ class DNSHeader:
     nscount: int
     arcount: int
 
+    def pack(self) -> bytes:
+        flags = (
+            (self.qr << 15)
+            | (self.opcode << 11)
+            | (self.aa << 10)
+            | (self.tc << 9)
+            | (self.rd << 8)
+            | (self.ra << 7)
+            | (self.z << 4)
+            | self.rcode
+        )
+        return struct.pack(
+            ">HHHHHH",
+            self.id,
+            flags,
+            self.qdcount,
+            self.ancount,
+            self.nscount,
+            self.arcount,
+        )
+
 
 @dataclass
 class DNSQuestion:
-    qname: str
-    qtype: int
-    qclass: int
+    name: str
+    type: int
+    class_: int
+
+    def pack(self):
+        parts = self.name.split(".")
+        qname = b"".join(len(p).to_bytes(1, "big") + p.encode("ascii") for p in parts)
+        qname += b"\x00"
+        return qname + struct.pack("!HH", self.type, self.class_)
 
 
-def pack_dns_header(header: DNSHeader) -> bytes:
-    flags = (
-        (header.qr << 15)
-        | (header.opcode << 11)
-        | (header.aa << 10)
-        | (header.tc << 9)
-        | (header.rd << 8)
-        | (header.ra << 7)
-        | (header.z << 4)
-        | header.rcode
-    )
-    return struct.pack(
-        ">HHHHHH",
-        header.id,
-        flags,
-        header.qdcount,
-        header.ancount,
-        header.nscount,
-        header.arcount,
-    )
+@dataclass
+class DNSAnswer:
+    name: str
+    type: int
+    class_: int
+    ttl: int
+    rdlength: int
+    rdata: str
 
-
-def pack_dns_question(question: DNSQuestion) -> bytes:
-    # Encode qname
-    parts = question.qname.split(".")
-    qname = b"".join(len(p).to_bytes(1, "big") + p.encode("ascii") for p in parts)
-    qname += b"\x00"  # append null byte at the end
-
-    # Encode qtype and qclass as 2-byte integers (big endian)
-    qtype = question.qtype.to_bytes(2, byteorder="big")
-    qclass = question.qclass.to_bytes(2, byteorder="big")
-
-    return qname + qtype + qclass
+    def pack(self):
+        parts = self.name.split(".")
+        name = b"".join(len(p).to_bytes(1, "big") + p.encode("ascii") for p in parts)
+        name += b"\x00"
+        rdata = struct.pack("!BBBB", *self.rdata.split("."))
+        return (
+            name
+            + struct.pack("!HHIH", self.type, self.class_, self.ttl, self.rdlength)
+            + rdata
+        )
 
 
 def main():
@@ -72,10 +85,11 @@ def main():
 
             response = b""
 
-            header = DNSHeader(1234, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0)
-            question = DNSQuestion("codecrafters.io", 1, 1)
+            header_packed = DNSHeader(1234, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1).pack()
+            question_packed = DNSQuestion("codecrafters.io", 1, 1).pack()
+            answer_packed = DNSAnswer("codecrafters.io", 1, 1, 60, 4, "8.8.8.8").pack()
 
-            response += pack_dns_header(header) + pack_dns_question(question)
+            response += header_packed + question_packed + answer_packed
             udp_socket.sendto(response, source)
         except Exception as e:
             print(f"Error receiving data: {e}")
