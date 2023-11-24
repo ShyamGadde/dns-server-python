@@ -92,7 +92,7 @@ def main():
             response = b""
 
             header_packed = DNSHeader(
-                id, qr, op, 0, 0, rd, 0, 0, rcode, 1, 1, 0, 0
+                id, 0, op, 0, 0, rd, 0, 0, rcode, 1, 1, 0, 0
             ).pack()
             question_packed = DNSQuestion("codecrafters.io", 1, 1).pack()
             answer_packed = DNSAnswer("codecrafters.io", 1, 1, 60, 4, "8.8.8.8").pack()
