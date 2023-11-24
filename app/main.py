@@ -81,11 +81,19 @@ def main():
 
     while True:
         try:
-            buf, source = udp_socket.recvfrom(512)
+            data, source = udp_socket.recvfrom(1024)
+
+            id = struct.unpack("!H", data[0:2])[0]
+            qr = data[2] >> 7
+            op = (data[2] >> 3) & 0b1111
+            rd = data[2] & 0b1
+            rcode = 0 if op == 0 else 4
 
             response = b""
 
-            header_packed = DNSHeader(1234, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0).pack()
+            header_packed = DNSHeader(
+                id, qr, op, 0, 0, rd, 0, 0, rcode, 1, 1, 0, 0
+            ).pack()
             question_packed = DNSQuestion("codecrafters.io", 1, 1).pack()
             answer_packed = DNSAnswer("codecrafters.io", 1, 1, 60, 4, "8.8.8.8").pack()
 
