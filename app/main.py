@@ -162,17 +162,6 @@ def main():
                 0,
             ).pack()
 
-            # id = struct.unpack("!H", data[0:2])[0]
-            # op = (data[2] >> 3) & 0b1111
-            # rd = data[2] & 0b1
-            # rcode = 0 if op == 0 else 4
-
-            # response = b""
-
-            # response_header = DNSHeader(
-            #     id, 1, op, 0, 0, rd, 0, 0, rcode, 1, 1, 0, 0
-            # ).pack()
-
             response_question = DNSQuestion(query.question.name, 1, 1).pack()
             response_answer = DNSAnswer(
                 query.question.name, 1, 1, 60, 4, "8.8.8.8"
