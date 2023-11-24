@@ -50,7 +50,7 @@ class DNSHeader:
         rd = (flags >> 8) & 0b1
         ra = (flags >> 7) & 0b1
         z = (flags >> 4) & 0b111
-        rcode = flags & 0b1111
+        rcode = 0 if opcode == 0 else 4
         return cls(
             id, qr, opcode, aa, tc, rd, ra, z, rcode, qdcount, ancount, nscount, arcount
         )
