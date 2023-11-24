@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 @dataclass
 class DNSHeader:
-    id: int
+    id_: int
     qr: int
     opcode: int
     aa: int
@@ -32,7 +32,7 @@ class DNSHeader:
         )
         return struct.pack(
             ">HHHHHH",
-            self.id,
+            self.id_,
             flags,
             self.qdcount,
             self.ancount,
@@ -42,7 +42,7 @@ class DNSHeader:
 
     @classmethod
     def unpack(cls, data: bytes):
-        id, flags, qdcount, ancount, nscount, arcount = struct.unpack(">HHHHHH", data)
+        id_, flags, qdcount, ancount, nscount, arcount = struct.unpack(">HHHHHH", data)
         qr = flags >> 15
         opcode = (flags >> 11) & 0b1111
         aa = (flags >> 10) & 0b1
@@ -52,7 +52,19 @@ class DNSHeader:
         z = (flags >> 4) & 0b111
         rcode = flags & 0b1111
         return cls(
-            id, qr, opcode, aa, tc, rd, ra, z, rcode, qdcount, ancount, nscount, arcount
+            id_,
+            qr,
+            opcode,
+            aa,
+            tc,
+            rd,
+            ra,
+            z,
+            rcode,
+            qdcount,
+            ancount,
+            nscount,
+            arcount,
         )
 
 
@@ -134,31 +146,32 @@ def main():
 
             response = b""
 
-            # response_header = DNSHeader(
-            #     id,
-            #     1,
-            #     query.header.opcode,
-            #     0,
-            #     0,
-            #     query.header.rd,
-            #     0,
-            #     0,
-            #     (0 if query.header.opcode == 0 else 4),
-            #     1,
-            #     1,
-            #     0,
-            #     0,
-            # ).pack()
-            id = struct.unpack("!H", data[0:2])[0]
-            op = (data[2] >> 3) & 0b1111
-            rd = data[2] & 0b1
-            rcode = 0 if op == 0 else 4
-
-            response = b""
-
             response_header = DNSHeader(
-                id, 1, op, 0, 0, rd, 0, 0, rcode, 1, 1, 0, 0
+                query.header.id_,
+                1,
+                query.header.opcode,
+                0,
+                0,
+                query.header.rd,
+                0,
+                0,
+                (0 if query.header.opcode == 0 else 4),
+                1,
+                1,
+                0,
+                0,
             ).pack()
+
+            # id = struct.unpack("!H", data[0:2])[0]
+            # op = (data[2] >> 3) & 0b1111
+            # rd = data[2] & 0b1
+            # rcode = 0 if op == 0 else 4
+
+            # response = b""
+
+            # response_header = DNSHeader(
+            #     id, 1, op, 0, 0, rd, 0, 0, rcode, 1, 1, 0, 0
+            # ).pack()
 
             response_question = DNSQuestion(query.question.name, 1, 1).pack()
             response_answer = DNSAnswer(
