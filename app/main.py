@@ -197,6 +197,7 @@ class DNSResponse:
                 dns_resolver.sendto(query_data, (ip, port))
 
                 dns_resolver_response, _ = dns_resolver.recvfrom(512)
+                print("Received response:", dns_resolver_response)
                 # We are skipping 4 bytes for the type and class fields
                 answer_offset = dns_resolver_response.index(b"\x00", 12) + 5
                 response += dns_resolver_response[answer_offset:]
