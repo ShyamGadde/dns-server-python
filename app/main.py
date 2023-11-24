@@ -85,7 +85,7 @@ class DNSQuestion:
         return name + struct.pack("!HH", self.type_, self.class_)
 
     @classmethod
-    def unpack(cls, data: bytes, msg: bytes):
+    def unpack(cls, data: bytes, payload: bytes):
         parts = []
         while True:
             length = data[0]
@@ -97,7 +97,7 @@ class DNSQuestion:
             ):  # Check if the first two bits are set
                 pointer = struct.unpack("!H", data[:2])[0]
                 pointer &= 0b0011111111111111  # Clear the first two bits
-                _, name = cls.unpack(msg[pointer:], msg)
+                _, name = cls.unpack(payload[pointer:], payload)
                 return cls(name, *struct.unpack("!HH", data[2:6])), data[6:]
             else:
                 parts.append(data[1 : length + 1].decode("ascii"))
@@ -143,7 +143,7 @@ class DNSQuery:
         questions: list[DNSQuestion] = []
         unprocessed = payload[12:]
         for _ in range(header.qdcount):
-            question, unprocessed = DNSQuestion.unpack(unprocessed)
+            question, unprocessed = DNSQuestion.unpack(unprocessed, payload)
             questions.append(question)
 
         return cls(header, questions)
