@@ -185,6 +185,9 @@ class DNSResponse:
                 query.header.pack() + question.pack(), (ip, port)
             )  # FIXME: qdcount is not 1
 
+            print("header", query.header)
+            print("question", question)
+
             dns_resolver_response, _ = dns_resolver.recvfrom(1024)
             print("dns_resolver_response", dns_resolver_response)
             # We are skipping 4 bytes for the type and class fields
