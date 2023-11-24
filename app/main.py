@@ -85,34 +85,15 @@ class DNSQuestion:
         return name + struct.pack("!HH", self.type_, self.class_)
 
     @classmethod
-    def unpack(cls, data: bytes, message: bytes):
+    def unpack(cls, data: bytes):
         parts = []
-        jumped = False
-        jump_offset = 0
-
         while True:
             length = data[0]
             if length == 0:
                 break
-
-            # Check if this is a pointer
-            if length >= 0xC0:
-                if not jumped:
-                    jump_offset = len(data) - 1
-                    jumped = True
-
-                # Calculate the offset and jump to it
-                offset = ((length & 0x3F) << 8) | data[1]
-                data = message[offset:]
-                continue
-
             parts.append(data[1 : length + 1].decode("ascii"))
             data = data[length + 1 :]
-
         name = ".".join(parts)
-
-        if jumped:
-            data = message[jump_offset:]
 
         type_, class_ = struct.unpack("!HH", data[:4])
         data = data[4:]
@@ -153,7 +134,7 @@ class DNSQuery:
         questions: list[DNSQuestion] = []
         unprocessed = payload[12:]
         for _ in range(header.qdcount):
-            question, unprocessed = DNSQuestion.unpack(unprocessed, message=payload)
+            question, unprocessed = DNSQuestion.unpack(unprocessed)
             questions.append(question)
 
         return cls(header, questions)
@@ -181,7 +162,6 @@ class DNSResponse:
         ).pack()
 
         for question in query.questions:
-            print(question)
             response += question.pack()
 
         for question in query.questions:
@@ -204,7 +184,6 @@ def main():
     while True:
         try:
             data, source = udp_socket.recvfrom(1024)
-            print(data)
 
             query = DNSQuery.parse(data)
 
