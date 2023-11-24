@@ -176,7 +176,7 @@ class DNSResponse:
         for question in query.questions:
             response += question.pack()
 
-        if resolver is None:
+        if resolver is not None:
             for question in query.questions:
                 response += DNSAnswer(
                     name=question.name,
