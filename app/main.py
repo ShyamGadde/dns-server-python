@@ -40,24 +40,59 @@ class DNSHeader:
             self.arcount,
         )
 
+    @classmethod
+    def unpack(cls, data: bytes):
+        id, flags, qdcount, ancount, nscount, arcount = struct.unpack(">HHHHHH", data)
+        qr = flags >> 15
+        opcode = (flags >> 11) & 0b1111
+        aa = (flags >> 10) & 0b1
+        tc = (flags >> 9) & 0b1
+        rd = (flags >> 8) & 0b1
+        ra = (flags >> 7) & 0b1
+        z = (flags >> 4) & 0b111
+        rcode = flags & 0b1111
+        return cls(
+            id, qr, opcode, aa, tc, rd, ra, z, rcode, qdcount, ancount, nscount, arcount
+        )
+
 
 @dataclass
 class DNSQuestion:
     name: str
-    type: int
+    type_: int
     class_: int
 
     def pack(self):
-        parts = self.name.split(".")
-        qname = b"".join(len(p).to_bytes(1, "big") + p.encode("ascii") for p in parts)
-        qname += b"\x00"
-        return qname + struct.pack("!HH", self.type, self.class_)
+        name = (
+            b"".join(
+                len(p).to_bytes(1, "big") + p.encode("ascii")
+                for p in self.name.split(".")
+            )
+            + b"\x00"
+        )
+        return name + struct.pack("!HH", self.type_, self.class_)
+
+    @classmethod
+    def unpack(cls, data: bytes):
+        parts = []
+        while True:
+            length = data[0]
+            if length == 0:
+                break
+            parts.append(data[1 : length + 1].decode("ascii"))
+            data = data[length + 1 :]
+        name = ".".join(parts)
+
+        type_, class_ = struct.unpack("!HH", data[:4])
+        data = data[4:]
+
+        return cls(name, type_, class_), data
 
 
 @dataclass
 class DNSAnswer:
     name: str
-    type: int
+    type_: int
     class_: int
     ttl: int
     rdlength: int
@@ -70,9 +105,21 @@ class DNSAnswer:
         rdata = struct.pack("!BBBB", *[int(part) for part in self.rdata.split(".")])
         return (
             name
-            + struct.pack("!HHIH", self.type, self.class_, self.ttl, self.rdlength)
+            + struct.pack("!HHIH", self.type_, self.class_, self.ttl, self.rdlength)
             + rdata
         )
+
+
+@dataclass
+class DNSQuery:
+    header: DNSHeader
+    question: DNSQuestion
+
+    @classmethod
+    def parse(cls, data):
+        header = DNSHeader.unpack(data[:12])
+        question, _ = DNSQuestion.unpack(data[12:])
+        return cls(header, question)
 
 
 def main():
@@ -83,21 +130,32 @@ def main():
         try:
             data, source = udp_socket.recvfrom(1024)
 
-            id = struct.unpack("!H", data[0:2])[0]
-            qr = data[2] >> 7
-            op = (data[2] >> 3) & 0b1111
-            rd = data[2] & 0b1
-            rcode = 0 if op == 0 else 4
+            query = DNSQuery.parse(data)
 
             response = b""
 
-            header_packed = DNSHeader(
-                id, 1, op, 0, 0, rd, 0, 0, rcode, 1, 1, 0, 0
+            response_header = DNSHeader(
+                id,
+                1,
+                query.header.opcode,
+                0,
+                0,
+                query.header.rd,
+                0,
+                0,
+                query.header.rcode,
+                1,
+                1,
+                0,
+                0,
             ).pack()
-            question_packed = DNSQuestion("codecrafters.io", 1, 1).pack()
-            answer_packed = DNSAnswer("codecrafters.io", 1, 1, 60, 4, "8.8.8.8").pack()
 
-            response += header_packed + question_packed + answer_packed
+            response_question = DNSQuestion(query.question.name, 1, 1).pack()
+            response_answer = DNSAnswer(
+                query.question.name, 1, 1, 60, 4, "8.8.8.8"
+            ).pack()
+
+            response += response_header + response_question + response_answer
             udp_socket.sendto(response, source)
         except Exception as e:
             print(f"Error receiving data: {e}")
