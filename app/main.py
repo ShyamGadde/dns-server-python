@@ -109,11 +109,10 @@ class DNSQuestion:
             parts.append(data[1 : length + 1].decode("ascii"))
             data = data[length + 1 :]
 
-            if jumped:
-                data = data[jump_offset:]
-                break
-
         name = ".".join(parts)
+
+        if jumped:
+            data = message[jump_offset:]
 
         type_, class_ = struct.unpack("!HH", data[:4])
         data = data[4:]
