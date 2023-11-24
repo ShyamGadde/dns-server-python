@@ -183,7 +183,7 @@ def main():
                 arcount=0,
             ).pack()
 
-            if args.resolver is None:
+            if args.resolver is not None:
                 for question in query.questions:
                     response += question.pack()
 
