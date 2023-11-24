@@ -154,7 +154,10 @@ class DNSQuery:
 
 class DNSResponse:
     @staticmethod
-    def build_from(query: DNSQuery):
+    def build_from(query: DNSQuery, resolver):
+        ip, port = resolver.split(":")
+        port = int(port)
+
         response = b""
 
         response += DNSHeader(
@@ -177,14 +180,24 @@ class DNSResponse:
             response += question.pack()
 
         for question in query.questions:
-            response += DNSAnswer(
-                name=question.name,
-                type_=1,
-                class_=1,
-                ttl=60,
-                rdlength=4,
-                rdata="8.8.8.8",
-            ).pack()
+            dns_resolver = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            dns_resolver.sendto(
+                query.header + question, (ip, port)
+            )  # FIXME: qdcount is not 1
+
+            dns_resolver_response, _ = dns_resolver.recvfrom(1024)
+            # We are skipping 4 bytes for the type and class fields
+            answer_offset = dns_resolver_response.index(b"\x00", 12) + 5
+            response += dns_resolver_response[answer_offset:]
+
+            # response += DNSAnswer(
+            #     name=question.name,
+            #     type_=1,
+            #     class_=1,
+            #     ttl=60,
+            #     rdlength=4,
+            #     rdata="8.8.8.8",
+            # ).pack()
 
         return response
 
@@ -193,8 +206,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--resolver", help="IP address of the resolver")
     args = parser.parse_args()
-    ip, port = args.resolver.split(":")
-    port = int(port)
 
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_socket.bind(("127.0.0.1", 2053))
@@ -204,7 +215,7 @@ def main():
             data, source = udp_socket.recvfrom(1024)
             query = DNSQuery.parse(data)
 
-            response = DNSResponse.build_from(query)
+            response = DNSResponse.build_from(query, args.resolver)
             udp_socket.sendto(response, source)
         except Exception as e:
             print(f"Error receiving data: {e}")
