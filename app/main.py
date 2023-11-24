@@ -85,15 +85,23 @@ class DNSQuestion:
         return name + struct.pack("!HH", self.type_, self.class_)
 
     @classmethod
-    def unpack(cls, data: bytes):
+    def unpack(cls, data: bytes, msg: bytes):
         parts = []
         while True:
             length = data[0]
             if length == 0:
                 data = data[1:]
                 break
-            parts.append(data[1 : length + 1].decode("ascii"))
-            data = data[length + 1 :]
+            elif (
+                length & 0b11000000 == 0b11000000
+            ):  # Check if the first two bits are set
+                pointer = struct.unpack("!H", data[:2])[0]
+                pointer &= 0b0011111111111111  # Clear the first two bits
+                _, name = cls.unpack(msg[pointer:], msg)
+                return cls(name, *struct.unpack("!HH", data[2:6])), data[6:]
+            else:
+                parts.append(data[1 : length + 1].decode("ascii"))
+                data = data[length + 1 :]
         name = ".".join(parts)
 
         type_, class_ = struct.unpack("!HH", data[:4])
