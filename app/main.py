@@ -194,14 +194,12 @@ class DNSResponse:
             query.header.qdcount = 1
             for question in query.questions:
                 query_data = query.header.pack() + question.pack()
-                print("Sending query:", query_data)
                 dns_resolver.sendto(query_data, (ip, port))
 
                 dns_resolver_response, _ = dns_resolver.recvfrom(512)
                 print("Received response:", dns_resolver_response)
                 # We are skipping 4 bytes for the type and class fields
                 answer_offset = dns_resolver_response.index(b"\x00", 12) + 5
-                print("Answer offset:", answer_offset)
                 response += dns_resolver_response[answer_offset:]
             dns_resolver.close()
 
