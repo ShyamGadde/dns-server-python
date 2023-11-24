@@ -155,10 +155,6 @@ class DNSQuery:
 class DNSResponse:
     @staticmethod
     def build_from(query: DNSQuery, resolver):
-        print("resolver", resolver)
-        ip, port = resolver.split(":")
-        port = int(port)
-
         response = b""
 
         response += DNSHeader(
@@ -180,30 +176,35 @@ class DNSResponse:
         for question in query.questions:
             response += question.pack()
 
-        for question in query.questions:
-            dns_resolver = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            dns_resolver.settimeout(1)
-            dns_resolver.sendto(
-                query.header.pack() + question.pack(), (ip, port)
-            )  # FIXME: qdcount is not 1
+        if resolver is None:
+            for question in query.questions:
+                response += DNSAnswer(
+                    name=question.name,
+                    type_=1,
+                    class_=1,
+                    ttl=60,
+                    rdlength=4,
+                    rdata="8.8.8.8",
+                ).pack()
+        else:
+            ip, port = resolver.split(":")
+            port = int(port)
 
-            print("header", query.header)
-            print("question", question)
+            for question in query.questions:
+                dns_resolver = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                dns_resolver.settimeout(100.0)
+                dns_resolver.sendto(
+                    query.header.pack() + question.pack(), (ip, port)
+                )  # FIXME: qdcount is not 1
 
-            dns_resolver_response, _ = dns_resolver.recvfrom(1024)
-            print("dns_resolver_response", dns_resolver_response)
-            # We are skipping 4 bytes for the type and class fields
-            answer_offset = dns_resolver_response.index(b"\x00", 12) + 5
-            response += dns_resolver_response[answer_offset:]
+                print("header", query.header)
+                print("question", question)
 
-            # response += DNSAnswer(
-            #     name=question.name,
-            #     type_=1,
-            #     class_=1,
-            #     ttl=60,
-            #     rdlength=4,
-            #     rdata="8.8.8.8",
-            # ).pack()
+                dns_resolver_response, _ = dns_resolver.recvfrom(512)
+                print("dns_resolver_response", dns_resolver_response)
+                # We are skipping 4 bytes for the type and class fields
+                answer_offset = dns_resolver_response.index(b"\x00", 12) + 5
+                response += dns_resolver_response[answer_offset:]
 
         return response
 
@@ -218,7 +219,7 @@ def main():
 
     while True:
         try:
-            data, source = udp_socket.recvfrom(1024)
+            data, source = udp_socket.recvfrom(512)
             query = DNSQuery.parse(data)
 
             response = DNSResponse.build_from(query, args.resolver)
