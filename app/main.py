@@ -176,7 +176,7 @@ class DNSResponse:
         for question in query.questions:
             response += question.pack()
 
-        if resolver is not None:
+        if resolver is None:
             for question in query.questions:
                 response += DNSAnswer(
                     name=question.name,
@@ -189,16 +189,17 @@ class DNSResponse:
         else:
             ip, port = resolver.split(":")
             port = int(port)
+            dns_resolver = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
             query.header.qdcount = 1
             for question in query.questions:
-                dns_resolver = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 dns_resolver.sendto(query.header.pack() + question.pack(), (ip, port))
 
                 dns_resolver_response, _ = dns_resolver.recvfrom(512)
                 # We are skipping 4 bytes for the type and class fields
                 answer_offset = dns_resolver_response.index(b"\x00", 12) + 5
                 response += dns_resolver_response[answer_offset:]
+            dns_resolver.close()
 
         return response
 
