@@ -1,3 +1,4 @@
+import argparse
 import socket
 import struct
 from dataclasses import dataclass
@@ -189,14 +190,18 @@ class DNSResponse:
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--resolver", help="IP address of the resolver")
+    args = parser.parse_args()
+    ip, port = args.resolver.split(":")
+    port = int(port)
+
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_socket.bind(("127.0.0.1", 2053))
 
     while True:
         try:
             data, source = udp_socket.recvfrom(1024)
-            print("data received", data)
-
             query = DNSQuery.parse(data)
 
             response = DNSResponse.build_from(query)
