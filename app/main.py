@@ -131,12 +131,6 @@ def main():
             data, source = udp_socket.recvfrom(1024)
 
             query = DNSQuery.parse(data)
-            print("query", query)
-            print("query.header", query.header)
-            print("query.question", query.question)
-            print(type(query.header.opcode))
-            print(type(query.header.rd))
-            print(type(query.header.rcode))
 
             response = b""
 
@@ -149,7 +143,7 @@ def main():
                 query.header.rd,
                 0,
                 0,
-                query.header.rcode,
+                (0 if query.header.opcode == 0 else 4),
                 1,
                 1,
                 0,
