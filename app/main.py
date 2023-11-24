@@ -90,6 +90,7 @@ class DNSQuestion:
         while True:
             length = data[0]
             if length == 0:
+                data = data[1:]
                 break
             parts.append(data[1 : length + 1].decode("ascii"))
             data = data[length + 1 :]
