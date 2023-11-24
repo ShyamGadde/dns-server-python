@@ -184,6 +184,7 @@ def main():
     while True:
         try:
             data, source = udp_socket.recvfrom(1024)
+            print(data)
 
             query = DNSQuery.parse(data)
 
