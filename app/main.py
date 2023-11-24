@@ -85,14 +85,34 @@ class DNSQuestion:
         return name + struct.pack("!HH", self.type_, self.class_)
 
     @classmethod
-    def unpack(cls, data: bytes):
+    def unpack(cls, data: bytes, message: bytes):
         parts = []
+        jumped = False
+        jump_offset = 0
+
         while True:
             length = data[0]
             if length == 0:
                 break
+
+            # Check if this is a pointer
+            if length >= 0xC0:
+                if not jumped:
+                    jump_offset = len(data) - 1
+                    jumped = True
+
+                # Calculate the offset and jump to it
+                offset = ((length & 0x3F) << 8) | data[1]
+                data = message[offset:]
+                continue
+
             parts.append(data[1 : length + 1].decode("ascii"))
             data = data[length + 1 :]
+
+            if jumped:
+                data = data[jump_offset:]
+                break
+
         name = ".".join(parts)
 
         type_, class_ = struct.unpack("!HH", data[:4])
@@ -130,7 +150,7 @@ class DNSQuery:
     @classmethod
     def parse(cls, data):
         header = DNSHeader.unpack(data[:12])
-        question, _ = DNSQuestion.unpack(data[12:])
+        question, _ = DNSQuestion.unpack(data[12:], message=data)
         return cls(header, question)
 
 
@@ -147,24 +167,34 @@ def main():
             response = b""
 
             response_header = DNSHeader(
-                query.header.id_,
-                1,
-                query.header.opcode,
-                0,
-                0,
-                query.header.rd,
-                0,
-                0,
-                (0 if query.header.opcode == 0 else 4),
-                1,
-                1,
-                0,
-                0,
+                id_=query.header.id_,
+                qr=1,
+                opcode=query.header.opcode,
+                aa=0,
+                tc=0,
+                rd=query.header.rd,
+                ra=0,
+                z=0,
+                rcode=(0 if query.header.opcode == 0 else 4),
+                qdcount=1,
+                ancount=1,
+                nscount=0,
+                arcount=0,
             ).pack()
 
-            response_question = DNSQuestion(query.question.name, 1, 1).pack()
+            response_question = DNSQuestion(
+                name=query.question.name,
+                type_=1,
+                class_=1,
+            ).pack()
+
             response_answer = DNSAnswer(
-                query.question.name, 1, 1, 60, 4, "8.8.8.8"
+                name=query.question.name,
+                type_=1,
+                class_=1,
+                ttl=60,
+                rdlength=4,
+                rdata="8.8.8.8",
             ).pack()
 
             response += response_header + response_question + response_answer
