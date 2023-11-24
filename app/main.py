@@ -182,7 +182,7 @@ class DNSResponse:
         for question in query.questions:
             dns_resolver = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             dns_resolver.sendto(
-                query.header + question, (ip, port)
+                query.header.pack() + question.pack(), (ip, port)
             )  # FIXME: qdcount is not 1
 
             dns_resolver_response, _ = dns_resolver.recvfrom(1024)
