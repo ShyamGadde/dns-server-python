@@ -182,6 +182,7 @@ class DNSResponse:
         ).pack()
 
         for question in query.questions:
+            print(question)
             response += question.pack()
 
         for question in query.questions:
