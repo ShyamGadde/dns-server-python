@@ -145,13 +145,56 @@ class DNSAnswer:
 @dataclass
 class DNSQuery:
     header: DNSHeader
-    question: DNSQuestion
+    questions: list[DNSQuestion]
 
     @classmethod
-    def parse(cls, data):
-        header = DNSHeader.unpack(data[:12])
-        question, _ = DNSQuestion.unpack(data[12:], message=data)
-        return cls(header, question)
+    def parse(cls, payload):
+        header = DNSHeader.unpack(payload[:12])
+
+        questions: list[DNSQuestion] = []
+        unprocessed = payload[12:]
+        for _ in range(header.qdcount):
+            question, unprocessed = DNSQuestion.unpack(unprocessed, message=payload)
+            questions.append(question)
+
+        return cls(header, questions)
+
+
+class DNSResponse:
+    @staticmethod
+    def build_from(query: DNSQuery):
+        response = b""
+
+        response += DNSHeader(
+            id_=query.header.id_,
+            qr=1,
+            opcode=query.header.opcode,
+            aa=0,
+            tc=0,
+            rd=query.header.rd,
+            ra=0,
+            z=0,
+            rcode=(0 if query.header.opcode == 0 else 4),
+            qdcount=query.header.qdcount,
+            ancount=query.header.qdcount,
+            nscount=0,
+            arcount=0,
+        ).pack()
+
+        for question in query.questions:
+            response += question.pack()
+
+        for question in query.questions:
+            response += DNSAnswer(
+                name=question.name,
+                type_=1,
+                class_=1,
+                ttl=60,
+                rdlength=4,
+                rdata="8.8.8.8",
+            ).pack()
+
+        return response
 
 
 def main():
@@ -163,42 +206,8 @@ def main():
             data, source = udp_socket.recvfrom(1024)
 
             query = DNSQuery.parse(data)
-            print("query.header", query.header)
 
-            response = b""
-
-            response_header = DNSHeader(
-                id_=query.header.id_,
-                qr=1,
-                opcode=query.header.opcode,
-                aa=0,
-                tc=0,
-                rd=query.header.rd,
-                ra=0,
-                z=0,
-                rcode=(0 if query.header.opcode == 0 else 4),
-                qdcount=1,
-                ancount=1,
-                nscount=0,
-                arcount=0,
-            ).pack()
-
-            response_question = DNSQuestion(
-                name=query.question.name,
-                type_=1,
-                class_=1,
-            ).pack()
-
-            response_answer = DNSAnswer(
-                name=query.question.name,
-                type_=1,
-                class_=1,
-                ttl=60,
-                rdlength=4,
-                rdata="8.8.8.8",
-            ).pack()
-
-            response += response_header + response_question + response_answer
+            response = DNSResponse.build_from(query)
             udp_socket.sendto(response, source)
         except Exception as e:
             print(f"Error receiving data: {e}")
