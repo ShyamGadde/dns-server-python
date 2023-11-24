@@ -155,6 +155,7 @@ class DNSQuery:
 class DNSResponse:
     @staticmethod
     def build_from(query: DNSQuery, resolver):
+        print("resolver", resolver)
         ip, port = resolver.split(":")
         port = int(port)
 
